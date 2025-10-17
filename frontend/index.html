@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>LinkFeed</title>
+<style>
+body { font-family: sans-serif; background: #0f0f0f; color: white; padding: 20px; }
+.link-box { 
+    background: #1e1e1e; 
+    padding: 10px; 
+    margin: 10px 0; 
+    border-radius: 8px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+}
+.username-link { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+a { color: #00bcd4; text-decoration: none; }
+.timestamp { font-size: 0.8em; color: #888; white-space: nowrap; }
+</style>
+</head>
+<body>
+<h1>LinkFeed</h1>
+<div id="links"></div>
+
+<script>
+const container = document.getElementById("links");
+
+fetch("/messages")
+  .then(res => res.json())
+  .then(messages => {
+      messages.forEach(data => {
+          if (!data.links || data.links.length === 0) return;
+
+          const div = document.createElement("div");
+          div.className = "link-box";
+
+          const leftDiv = document.createElement("div");
+          leftDiv.className = "username-link";
+
+          const usernameSpan = document.createElement("span");
+          usernameSpan.textContent = data.username + " :";
+          leftDiv.appendChild(usernameSpan);
+
+          data.links.forEach(url => {
+              const a = document.createElement("a");
+              a.href = url;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = url;
+              leftDiv.appendChild(a);
+          });
+
+          div.appendChild(leftDiv);
+
+          const time = document.createElement("span");
+          time.className = "timestamp";
+
+          const date = new Date(data.timestamp);
+          if (!isNaN(date.getTime())) {
+              const hours = String(date.getHours()).padStart(2,'0');
+              const minutes = String(date.getMinutes()).padStart(2,'0');
+              const seconds = String(date.getSeconds()).padStart(2,'0');
+              time.textContent = `${hours}:${minutes}:${seconds}`;
+          }
+
+          div.appendChild(time);
+
+          container.prepend(div);
+      });
+  });
+
+const wsPython = new WebSocket("ws://localhost:6789");
+
+wsPython.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (!data.links || data.links.length === 0) return;
+
+    const div = document.createElement("div");
+    div.className = "link-box";
+
+    const leftDiv = document.createElement("div");
+    leftDiv.className = "username-link";
+
+    if (data.avatar)
+    {
+        const img = document.createElement("img");
+        img.src = data.avatar;
+        img.alt = data.username;
+        img.style.width = "32px";
+        img.style.height = "32px";
+        img.style.borderRadius = "50%";
+        img.style.objectFit = "cover";
+        leftDiv.appendChild(img);
+    }
+
+
+    const usernameSpan = document.createElement("span");
+    usernameSpan.textContent = data.username + " :";
+    leftDiv.appendChild(usernameSpan);
+
+    data.links.forEach(url => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = url;
+        leftDiv.appendChild(a);
+    });
+
+    div.appendChild(leftDiv);
+
+    const time = document.createElement("span");
+    time.className = "timestamp";
+    const date = new Date(); 
+    time.textContent = date.toLocaleTimeString();
+    div.appendChild(time);
+
+    container.prepend(div);
+};
+</script>
+</body>
+</html>
