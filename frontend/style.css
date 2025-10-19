@@ -1,0 +1,179 @@
+body { 
+  font-family: sans-serif; 
+  background: #0f0f0f; 
+  color: white; 
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+}
+
+header {
+  background: #1e1e1e;
+  width: 100%;
+  display: flex;
+  justify-content: center; 
+  z-index: 1000;
+}
+
+header .header-content {
+  width: 100%;
+  max-width: 1400px; 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  box-sizing: border-box;
+}
+
+header .left {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+header .center {
+  display: flex;
+  align-items: center;
+  gap: 5px; 
+}
+
+header .center .kick-logo {
+  width: 24px;   
+  height: 24px;
+  object-fit: contain;
+}
+
+header .center input {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  width: 180px;
+  text-align: center;
+}
+
+header .right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+header .right .viewers {
+  display: none; 
+  font-size: 0.9em;
+  color: #888;
+}
+
+header .right button {
+  background: #9b59b6;
+  border: none;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+header .right button:hover {
+  background: #d18aff;
+}
+
+
+#links {
+  width: 100%;
+  max-width: 1400px; 
+  margin-top: 20px;
+}
+
+.link-box { 
+  background: #1e1e1e; 
+  padding: 30px 30px; 
+  margin: 10px auto; 
+  border-radius: 18px; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  min-height: 50px;
+}
+
+.username-link { 
+  display: flex; 
+  gap: 5px; 
+  flex-wrap: wrap; 
+  align-items: center; 
+}
+
+.username-link img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+a { 
+  color: #9b59b6; 
+  text-decoration: none; 
+  font-size: 1.1em; 
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+  transition: color 0.2s;
+}
+
+a::before {
+  content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%239b59b6"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z"/><path d="M5 5h5v2H7v11h11v-3h2v5H5V5z"/></svg>');
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: text-bottom;
+  transition: transform 0.2s, fill 0.2s;
+}
+
+a:hover {
+  color: #d18aff;
+  transform: translateY(-2px);
+}
+
+a:hover::before {
+  content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23d18aff"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z"/><path d="M5 5h5v2H7v11h11v-3h2v5H5V5z"/></svg>');
+}
+
+.timestamp { 
+  font-size: 0.8em; 
+  color: #888; 
+  position: absolute;
+  bottom: 10px;
+  right: 15px; 
+}
+
+#loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2000;
+}
+
+
+.spinner {
+  border: 5px solid #1e1e1e;
+  border-top: 5px solid #9b59b6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none;
+}
