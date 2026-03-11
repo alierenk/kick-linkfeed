@@ -21,13 +21,14 @@ header .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 0;
+  padding: 30px 0;
   box-sizing: border-box;
 }
 
 header .left {
-  font-size: 1.5em;
+  font-size: 1.8em;
   font-weight: bold;
+
 }
 
 header .center {
@@ -37,18 +38,20 @@ header .center {
 }
 
 header .center .kick-logo {
-  width: 24px;   
-  height: 24px;
+  width: 32px;   
+  height: 32px;
   object-fit: contain;
 }
 
 header .center input {
-  padding: 5px 10px;
-  border-radius: 8px;
+  padding: 6px 15px;
+  border-radius: 12px;
   border: none;
   outline: none;
-  width: 180px;
+  width: 200px;
   text-align: center;
+  font-size: 1.2em;
+  text-transform: lowercase;
 }
 
 header .right {
@@ -77,7 +80,6 @@ header .right button:hover {
   background: #d18aff;
 }
 
-
 #links {
   width: 100%;
   display: flex;
@@ -88,38 +90,134 @@ header .right button:hover {
 }
 
 
-.link-box { 
-  background: #1e1e1e; 
-  padding: 30px; 
+.link-box {
+  background: #1e1e1e;
+  padding: 20px 30px;
   width: 100%;
-  max-width: 1400px; 
-  border-radius: 18px; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: flex-start;
-  box-sizing: border-box;
+  max-width: 1400px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   position: relative;
-  min-height: 50px;
+  gap: 10px;
+  min-height: 60px;
 }
 
-.username{
+.username {
+  background: rgba(255, 255, 255, 0.099);
+  padding: 5px 10px;
+  border-radius: 999px; 
+  font-size: 0.85em;
+  text-align: center;
+  max-width: 100%;
+  display: flex;
+  align-items:center;
+  gap: 5px;
+  position: relative;
+}
+
+.username-link {
+  position: absolute; 
+  left: 25px; 
+  top: 50%; 
+  transform: translateY(-50%); 
   display: flex;
   align-items: center;
-  font-size: 1.2em;
+  gap: 10px;
 }
-.username-link { 
-  display: flex;
-  align-items: center; 
-  gap: 6px; 
-  width: 100%;
 
+.row{
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
 }
+
+.profile-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  gap: 15px;
+}
+
+
+.profile-pic {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.message-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 
 .links-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+}
+
+.links-container a {
+  display: block;
+  max-width: 600px;      
+  overflow: hidden;
+  text-overflow: ellipsis; 
+  white-space: nowrap;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.shared-by {
+  color: #918d8d;
+  font-size: 0.85em;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  margin-left: 2;
+}
+
+.badges {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.badge-icon {
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  margin-right: 2px;
+}
+
+.badge-sub {
+  width: 16px;
+  height: 16px;
+}
+
+.subscription-months{
+  align-items: center;
+  margin-left: 0px;
 }
 
 a { 
@@ -128,18 +226,19 @@ a {
   font-size: 1.2em; 
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  transition: color 0.2s;
+  gap: 6px;
+  transition: color 0.2s ease, transform 0.2s ease;
   word-break: break-word; 
 }
 
 a::before {
   content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%239b59b6"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z"/><path d="M5 5h5v2H7v11h11v-3h2v5H5V5z"/></svg>');
   display: inline-block;
+  flex-shrink: 0; 
   width: 20px;
   height: 20px;
-  vertical-align: text-bottom;
-  transition: transform 0.2s, fill 0.2s;
+  vertical-align: middle;
+  transition: filter 0.2s ease;
 }
 
 a:hover {
@@ -148,9 +247,8 @@ a:hover {
 }
 
 a:hover::before {
-  content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23d18aff"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z"/><path d="M5 5h5v2H7v11h11v-3h2v5H5V5z"/></svg>');
+  filter: brightness(1.4);
 }
-
 
 .timestamp { 
   font-size: 0.8em; 
