@@ -1,6 +1,20 @@
 import { MongoClient } from "mongodb";
 
 const client = new MongoClient(process.env.MONGO_URI);
+let indexesEnsured = false;
+let ensurePromise = null;
+
+async function ensureIndexes(col) {
+  if (indexesEnsured) return;
+  if (!ensurePromise) {
+    ensurePromise = (async () => {
+      await col.createIndex({ messageId: 1 }, { unique: true, partialFilterExpression: { messageId: { $type: "string" } } });
+      await col.createIndex({ channel: 1, timestamp: 1 });
+      indexesEnsured = true;
+    })();
+  }
+  await ensurePromise;
+}
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -10,6 +24,7 @@ export async function GET(req) {
   const db = client.db("kick_chat");
   const col = db.collection("messages");
 
+  await ensureIndexes(col);
   const query = channel ? { channel } : {};
   const messages = await col.find(query).sort({ timestamp: 1 }).toArray();
 
@@ -24,6 +39,7 @@ export async function POST(req) {
   const db = client.db("kick_chat");
   const col = db.collection("messages");
 
+  await ensureIndexes(col);
   if (data.messageId) {
     const exists = await col.findOne({ messageId: data.messageId });
     if (exists) {

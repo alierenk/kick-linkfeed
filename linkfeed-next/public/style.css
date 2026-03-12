@@ -87,6 +87,8 @@ header .right button:hover {
   align-items: center; 
   margin-top: 25px;
   gap: 15px;
+  height: calc(100vh - 140px);
+  overflow: hidden;
 }
 
 

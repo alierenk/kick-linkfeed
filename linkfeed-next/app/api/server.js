@@ -6,20 +6,61 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const FRONTEND_WS_PORT = 6789;
-const HTTP_PORT = 4000;
+const log = {
+  info: (...args) => console.log("[INFO]", ...args),
+  warn: (...args) => console.warn("[WARN]", ...args),
+  error: (...args) => console.error("[ERROR]", ...args),
+};
+
+const FRONTEND_WS_PORT = Number(process.env.FRONTEND_WS_PORT || 6789);
+const HTTP_PORT = Number(process.env.BACKEND_HTTP_PORT || 4000);
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
+const PUSHER_WS_URL =
+  process.env.PUSHER_WS_URL ||
+  "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false";
+const KICK_API_BASE = process.env.KICK_API_BASE || "https://kick.com/api/v2";
 
 const wss = new WebSocketServer({ port: FRONTEND_WS_PORT });
 const clients = new Set();
+
+const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS || 60000);
+const RATE_MAX = Number(process.env.RATE_MAX || 60);
+const rateStore = new Map();
+
+function getClientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  if (Array.isArray(fwd)) return fwd[0];
+  if (typeof fwd === "string") return fwd.split(",")[0].trim();
+  return req.ip || req.connection?.remoteAddress || "unknown";
+}
+
+function rateLimit(req, res, next) {
+  const key = getClientIp(req);
+  const now = Date.now();
+  const entry = rateStore.get(key);
+  if (!entry || now - entry.start >= RATE_WINDOW_MS) {
+    rateStore.set(key, { start: now, count: 1 });
+    return next();
+  }
+  entry.count += 1;
+  if (entry.count > RATE_MAX) {
+    log.warn("Rate limit exceeded:", key, req.method, req.originalUrl);
+    return res.status(429).json({ error: "Rate limit" });
+  }
+  return next();
+}
 
 let pusherWs = null;
 let activeChatroom = null;
 let activeChannelName = null;
 let connectingTo = null;
+let desiredChatroom = null;
+let pusherReconnectTimer = null;
+let pusherReconnectAttempt = 0;
 
 wss.on("connection", (socket) => {
   clients.add(socket);
-  console.log("Frontend WS client connected. Total:", clients.size);
+  log.info("Frontend WS client connected. Total:", clients.size);
 
   socket.on("message", (raw) => {
     try {
@@ -31,23 +72,28 @@ wss.on("connection", (socket) => {
   });
 
   socket.on("close", () => {
-  clients.delete(socket);
-  console.log("Frontend WS client disconnected. Total:", clients.size);
+    clients.delete(socket);
+    log.info("Frontend WS client disconnected. Total:", clients.size);
 
-  setTimeout(() => {
-    if (clients.size === 0 && pusherWs) {
-      console.log("No clients left for 500ms → closing Pusher");
-      try {
-        pusherWs.close();
-      } catch {}
-      pusherWs = null;
-      activeChatroom = null;
-      activeChannelName = null;
-      connectingTo = null;
-    }
-  }, 500);
-});
-
+    setTimeout(() => {
+      if (clients.size === 0 && pusherWs) {
+        log.info("No clients left for 500ms -> closing Pusher");
+        try {
+          pusherWs.close();
+        } catch {}
+        pusherWs = null;
+        activeChatroom = null;
+        activeChannelName = null;
+        connectingTo = null;
+        desiredChatroom = null;
+        pusherReconnectAttempt = 0;
+        if (pusherReconnectTimer) {
+          clearTimeout(pusherReconnectTimer);
+          pusherReconnectTimer = null;
+        }
+      }
+    }, 500);
+  });
 });
 
 function broadcast(payload) {
@@ -58,47 +104,73 @@ function broadcast(payload) {
   }
 }
 
+function schedulePusherReconnect() {
+  if (!desiredChatroom) return;
+  if (clients.size === 0) return;
+  if (pusherReconnectTimer) return;
+  pusherReconnectAttempt += 1;
+  const delay = Math.min(30000, 1000 * 2 ** (pusherReconnectAttempt - 1));
+  pusherReconnectTimer = setTimeout(() => {
+    pusherReconnectTimer = null;
+    createPusherWs();
+  }, delay);
+}
+
+function createPusherWs() {
+  if (!desiredChatroom) return;
+  if (pusherWs && (pusherWs.readyState === WebSocket.OPEN || pusherWs.readyState === WebSocket.CONNECTING)) return;
+
+  pusherWs = new WebSocket(PUSHER_WS_URL);
+
+  pusherWs.on("open", () => {
+    pusherReconnectAttempt = 0;
+    if (pusherReconnectTimer) {
+      clearTimeout(pusherReconnectTimer);
+      pusherReconnectTimer = null;
+    }
+    activeChatroom = desiredChatroom;
+    connectingTo = null;
+    if (pusherWs && pusherWs.readyState === WebSocket.OPEN) {
+      pusherWs.send(JSON.stringify({
+        event: "pusher:subscribe",
+        data: { channel: `chatrooms.${desiredChatroom}.v2` }
+      }));
+    }
+  });
+
+  pusherWs.on("message", handlePusherMessage);
+
+  pusherWs.on("close", () => {
+    pusherWs = null;
+    activeChatroom = null;
+    activeChannelName = null;
+    connectingTo = null;
+    log.info("Pusher WS closed");
+    schedulePusherReconnect();
+  });
+
+  pusherWs.on("error", (err) => {
+    log.error("Pusher WS error:", err);
+    if (pusherWs && (pusherWs.readyState === WebSocket.OPEN || pusherWs.readyState === WebSocket.CONNECTING)) {
+      try { pusherWs.close(); } catch {}
+    }
+    pusherWs = null;
+    activeChatroom = null;
+    activeChannelName = null;
+    connectingTo = null;
+    schedulePusherReconnect();
+  });
+}
+
 function startPusherConnection(chatroomId, channelName = null) {
   if (!chatroomId) return;
   if (activeChatroom === chatroomId && pusherWs?.readyState === WebSocket.OPEN) return;
   if (connectingTo === chatroomId) return;
   connectingTo = chatroomId;
+  desiredChatroom = chatroomId;
 
   if (!pusherWs) {
-    const wsUrl = `wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false`;
-    pusherWs = new WebSocket(wsUrl);
-
-    pusherWs.on("open", () => {
-      activeChatroom = chatroomId;
-      connectingTo = null;
-      if (pusherWs && pusherWs.readyState === WebSocket.OPEN) {
-        pusherWs.send(JSON.stringify({
-          event: "pusher:subscribe",
-          data: { channel: `chatrooms.${chatroomId}.v2` }
-        }));
-      }
-    });
-
-    pusherWs.on("message", handlePusherMessage);
-
-    pusherWs.on("close", () => {
-      pusherWs = null;
-      activeChatroom = null;
-      activeChannelName = null;
-      connectingTo = null;
-      console.log("Pusher WS closed");
-    });
-
-    pusherWs.on("error", (err) => {
-      console.error("Pusher WS error:", err);
-      if (pusherWs && (pusherWs.readyState === WebSocket.OPEN || pusherWs.readyState === WebSocket.CONNECTING)) {
-        try { pusherWs.close(); } catch {}
-      }
-      pusherWs = null;
-      activeChatroom = null;
-      activeChannelName = null;
-      connectingTo = null;
-    });
+    createPusherWs();
   } else {
     
     try {
@@ -117,7 +189,7 @@ function startPusherConnection(chatroomId, channelName = null) {
       activeChatroom = chatroomId;
       connectingTo = null;
     } catch (err) {
-      console.error("Channel switch error:", err);
+      log.error("Channel switch error:", err);
     }
   }
 
@@ -172,7 +244,7 @@ function handlePusherMessage(msg) {
       if (payload.links?.length && clients.size > 0) {
         (async () => {
           try {
-            await fetch("http://localhost:3000/api/messages", {
+            await fetch(`${APP_BASE_URL}/api/messages`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
@@ -185,24 +257,28 @@ function handlePusherMessage(msg) {
 }
 
 
-app.get("/api/channel/:channelName", async (req, res) => {
+app.get("/api/channel/:channelName", rateLimit, async (req, res) => {
   const { channelName } = req.params;
   try {
-    const r = await fetch(`https://kick.com/api/v2/channels/${channelName}`, {
+    const r = await fetch(`${KICK_API_BASE}/channels/${channelName}`, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/",
         "Accept": "*/*"
       }
     });
-    if (!r.ok) return res.status(r.status).json({ error: "Kanal bulunamadı" });
+    if (!r.ok) {
+      log.warn("Kick channel fetch failed:", r.status, channelName);
+      return res.status(r.status).json({ error: "Kanal bulunamadi" });
+    }
     const data = await r.json();
     res.json(data);
   } catch (err) {
+    log.error("Kick channel fetch error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/connect", (req, res) => {
+app.post("/api/connect", rateLimit, (req, res) => {
   const { chatroomId, channelName } = req.body;
   if (!chatroomId) return res.status(400).json({ error: "chatroomId required" });
   startPusherConnection(chatroomId, channelName || null);
@@ -210,6 +286,8 @@ app.post("/api/connect", (req, res) => {
 });
 
 app.listen(HTTP_PORT, () => {
-  console.log(`Backend HTTP listening on http://localhost:${HTTP_PORT}`);
-  console.log(`Frontend WS server listening on ws://localhost:${FRONTEND_WS_PORT}`);
+  log.info(`Backend HTTP listening on http://localhost:${HTTP_PORT}`);
+  log.info(`Frontend WS server listening on ws://localhost:${FRONTEND_WS_PORT}`);
 });
+
+
